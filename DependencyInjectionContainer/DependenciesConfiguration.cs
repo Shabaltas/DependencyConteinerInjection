@@ -83,7 +83,12 @@ namespace DependencyInjectionContainer
         internal void CheckDependencyForType(Type interfaceType)
         {
             if (!_dependencies.Keys.Contains(interfaceType))
-                throw new DependencyException($"No dependency for the {interfaceType.Name}");;
+                throw new DependencyException($"No dependency for the {interfaceType.Name}");
+        }
+        
+        internal bool ContainsDependencyForType(Type interfaceType)
+        {
+            return _dependencies.Keys.Contains(interfaceType);
         }
 
         private bool DoesInheritType(Type implType, Type interfaceType)

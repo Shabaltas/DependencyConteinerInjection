@@ -64,21 +64,9 @@ namespace DependencyInjectionContainer
 
         public object Resolve(Type interfaceType, string id)
         {
-            Type[] args = null;
-            try
-            {
-                DependenciesConfiguration.CheckDependencyForType(interfaceType);
-            }
-            catch (DependencyException)
-            {
-                if (interfaceType.IsGenericType)
-                {
-                    DependenciesConfiguration.CheckDependencyForType(interfaceType.GetGenericTypeDefinition());
-                    args = interfaceType.GetGenericArguments();
-                    interfaceType = interfaceType.GetGenericTypeDefinition();
-                } else throw;
-            }
-
+            Type[] args;
+            if (!IsInterfaceValid(ref interfaceType, out args))
+                throw new DependencyException($"No dependency for the {interfaceType.Name}");
             List<Dependency> dependencies = DependenciesConfiguration.GetDependencies(interfaceType);
             if (dependenciesStack.Contains(interfaceType))
                 throw new DependencyException("Beans have cyclic dependency");
@@ -103,31 +91,44 @@ namespace DependencyInjectionContainer
 
         public Object Resolve(Type interfaceType)
         {
-            interfaceType =
-                interfaceType.IsGenericType ? interfaceType.GetGenericTypeDefinition() : interfaceType;
-            try
-            {
-                DependenciesConfiguration.CheckDependencyForType(interfaceType);
-            }
-            catch (DependencyException)
-            {
-                if (interfaceType.GetInterface("IEnumerable") != null)
-                { 
-                    Type genericInterfaceType = interfaceType.GetGenericArguments()[0];
+            Type[] args = null;
+            if (!IsInterfaceValid(ref interfaceType, out args))
+                if (interfaceType.GetInterface("IEnumerable") != null) 
+                {
+                    Type genericInterfaceType = interfaceType.GetGenericArguments()[0]; 
                     DependenciesConfiguration.CheckDependencyForType(genericInterfaceType); 
                     return ResolveList(genericInterfaceType); 
-                }
-                throw;
-            }
+                } else 
+                    throw new DependencyException($"No dependency for the {interfaceType.Name}");
+
             List<Dependency> dependencies = DependenciesConfiguration.GetDependencies(interfaceType);
             if (dependencies.Count > 1)
                 throw new DependencyException($"Can't define implementation for {interfaceType.Name}");
             if (dependenciesStack.Contains(interfaceType))
                 throw new DependencyException("Beans have cyclic dependency");
             dependenciesStack.Push(interfaceType);
-            object bean = ResolveDependency(dependencies[0]);
+            Dependency foundDependency = dependencies[0];
+            object bean = ResolveDependency(args == null 
+                ? foundDependency
+                : new Dependency(foundDependency.ImplType.MakeGenericType(args), foundDependency.Scope, foundDependency.Id));
             dependenciesStack.Pop();
             return bean;
+        }
+
+        private bool ValidateGenericInterfaceAndGetArgs(ref Type interfaceType, out Type[] args)
+        {
+            DependenciesConfiguration.CheckDependencyForType(interfaceType.GetGenericTypeDefinition());
+            args = interfaceType.GetGenericArguments();
+            interfaceType = interfaceType.GetGenericTypeDefinition();
+            return true;
+        }
+
+        private bool IsInterfaceValid(ref Type interfaceType, out Type[] args)
+        {
+            args = null;
+            return (DependenciesConfiguration.ContainsDependencyForType(interfaceType)
+                    || (interfaceType.IsGenericType &&
+                        ValidateGenericInterfaceAndGetArgs(ref interfaceType, out args)));
         }
         
         private List<Object> ResolveList(Type interfaceType)
