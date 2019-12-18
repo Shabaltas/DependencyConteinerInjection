@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using DependencyInjectionContainer;
 using NUnit.Framework;
 using TestableLib;
@@ -43,7 +42,7 @@ namespace Tests
         {
             DependenciesConfiguration configuration = new DependenciesConfiguration();
             configuration.Register(typeof(IRepository), typeof(MyRepository));
-            configuration.Register<IBaseService, ServiceImpl1<IRepository>>();
+            configuration.Register(typeof(IBaseService), typeof(ServiceImpl1<IRepository>));
             DependencyContainer container = new DependencyContainer(configuration);
             IBaseService service = container.Resolve<IBaseService>();
             Assert.IsInstanceOf<ServiceImpl1<IRepository>>(service);
@@ -124,6 +123,25 @@ namespace Tests
             IService<IRepository> service = container.Resolve<IService<IRepository>>();
             Assert.IsInstanceOf<ServiceImpl3<IRepository>>(service);
             Assert.IsInstanceOf<MyRepository>(((ServiceImpl3<IRepository>)service).Repository);
+        }
+        
+        [Test]
+        public void DependencyNotRegisteredTest()
+        {
+            DependenciesConfiguration configuration = new DependenciesConfiguration();
+            configuration.Register<IService<IRepository>, ServiceImpl3<IRepository>> ();
+            DependencyContainer container = new DependencyContainer(configuration);
+            Assert.Throws<DependencyException>(() => container.Resolve<ServiceImpl3<IRepository>>());
+        }
+        
+        [Test]
+        public void CollectionDependencyTest()
+        {
+            DependenciesConfiguration configuration = new DependenciesConfiguration();
+            configuration.Register<IEnumerable<IRepository>, List<MyRepository>> ();
+            DependencyContainer container = new DependencyContainer(configuration);
+            IEnumerable<IRepository> repositories = container.Resolve<IEnumerable<IRepository>>();
+            Assert.IsInstanceOf<List<MyRepository>>(repositories);
         }
         
     }

@@ -8,7 +8,7 @@ namespace DependencyInjectionContainer
     public class DependencyContainer
     {
         private Stack<Type> dependenciesStack = new Stack<Type>();
-        public DependenciesConfiguration DependenciesConfiguration { get; set; }
+        public readonly DependenciesConfiguration DependenciesConfiguration;
         
         private Dictionary<string, Object> _singletonBeans = new Dictionary<string, object>();
 
@@ -26,7 +26,7 @@ namespace DependencyInjectionContainer
             return (I)Resolve(typeof(I));
         }
 
-        private ConstructorInfo getConstructorWithMaxParams(ConstructorInfo[] constructors)
+        private ConstructorInfo GetConstructorWithMaxParams(ConstructorInfo[] constructors)
         {
             int maxCount = -1;
             int currentCount;
@@ -71,15 +71,7 @@ namespace DependencyInjectionContainer
             if (dependenciesStack.Contains(interfaceType))
                 throw new DependencyException("Beans have cyclic dependency");
             dependenciesStack.Push(interfaceType);
-            Dependency foundDependency = null;
-            foreach (var dependency in dependencies)
-            {
-                if (dependency.Id.Equals(id))
-                {
-                    foundDependency = dependency;
-                    break;
-                }
-            }
+            Dependency foundDependency = dependencies.FirstOrDefault(dependency => dependency.Id.Equals(id));
             if (foundDependency == null)
                 throw new DependencyException($"Bean {id} is not registered");
             object bean = ResolveDependency(args == null 
@@ -159,13 +151,11 @@ namespace DependencyInjectionContainer
             ConstructorInfo[] constructors = dependency.ImplType.GetConstructors(BindingFlags.Instance | BindingFlags.Public);
             if (constructors.Length == 0)
                 throw new DependencyException($"No public constructor for bean \"{id}\"");
-            ConstructorInfo constructor = getConstructorWithMaxParams(constructors);
+            ConstructorInfo constructor = GetConstructorWithMaxParams(constructors);
             object bean = CreateBean(constructor);
             if (dependency.Scope == Lifetime.Singleton)
                 _singletonBeans.Add(id, bean);
             return bean;
         }
     }
-    
-    
 }

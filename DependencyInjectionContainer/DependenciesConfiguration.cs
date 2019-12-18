@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 namespace DependencyInjectionContainer
 {
@@ -114,7 +113,5 @@ namespace DependencyInjectionContainer
         }
         private Type GetTypeDefinition(Type type) =>
             type.IsGenericType ? type.GetGenericTypeDefinition() : type;
-
-         
     }
 }
