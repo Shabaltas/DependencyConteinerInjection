@@ -29,11 +29,11 @@ namespace Tests
             configuration.Register(typeof(IService<>), typeof(ServiceImpl1<>), Lifetime.Singleton, "1");
             configuration.Register(typeof(IService<>), typeof(ServiceImpl2<>), Lifetime.Prototype, "2");
             DependencyContainer container = new DependencyContainer(configuration);
-            ServiceImpl1<IRepository> serviceImpl1 = (ServiceImpl1<IRepository>)container.Resolve<IService<IRepository>>("1");
+            IService<IRepository> serviceImpl1 = container.Resolve<IService<IRepository>>("1");
             ServiceImpl2<IRepository> serviceImpl2 = (ServiceImpl2<IRepository>)container.Resolve<IService<IRepository>>("2");
             ServiceImpl1<IRepository> serviceImpl11 = (ServiceImpl1<IRepository>)container.Resolve<IService<IRepository>>("1");
             ServiceImpl2<IRepository> serviceImpl22 = (ServiceImpl2<IRepository>)container.Resolve<IService<IRepository>>("2");
-            Assert.That(serviceImpl1 == serviceImpl11);
+            Assert.AreSame(serviceImpl1, serviceImpl11);
             Assert.That(serviceImpl2 != serviceImpl22);
         }
         

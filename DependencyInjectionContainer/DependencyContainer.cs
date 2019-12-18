@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -88,9 +90,7 @@ namespace DependencyInjectionContainer
                 {
                     Type genericInterfaceType = interfaceType.GetGenericArguments()[0]; 
                     DependenciesConfiguration.CheckDependencyForType(genericInterfaceType);
-                    return  GetType().GetMethod("ResolveList", BindingFlags.Instance | BindingFlags.NonPublic)
-                        .MakeGenericMethod(genericInterfaceType)
-                        .Invoke(this, new object[]{genericInterfaceType});
+                    return ResolveList(genericInterfaceType);
                 } else 
                     throw new DependencyException($"No dependency for the {interfaceType.Name}");
 
@@ -128,34 +128,50 @@ namespace DependencyInjectionContainer
                         ValidateGenericInterfaceAndGetArgs(ref interfaceType, out args)));
         }
         
-        private List<T> ResolveList<T>(Type interfaceType)
+        private IList ResolveList(Type interfaceType)
         {
             List<Dependency> dependencies = DependenciesConfiguration.GetDependencies(interfaceType);
-            List<T> result = new List<T>();
+            var genericListType = typeof(List<>).MakeGenericType(interfaceType);
+            var genericList = (IList)Activator.CreateInstance(genericListType);
             if (dependenciesStack.Contains(interfaceType))
                 throw new DependencyException("Beans have cyclic dependency");
             dependenciesStack.Push(interfaceType);
             dependencies.ForEach(dependency =>
             {
-                result.Add((T)ResolveDependency(dependency));
+                genericList.Add(ResolveDependency(dependency));
             });
             dependenciesStack.Pop();
-            return result;
+            return genericList;
         }
 
         private Object ResolveDependency(Dependency dependency)
         {
             string id = dependency.Id;
-            if (_singletonBeans.ContainsKey(id))
-                return _singletonBeans[id];
+            if (dependency.Scope == Lifetime.Singleton)
+            {
+                if (_singletonBeans.ContainsKey(id))
+                    return _singletonBeans[id];
+                lock (_singletonBeans)
+                {
+                    if (_singletonBeans.ContainsKey(id))
+                        return _singletonBeans[id];
+                    Object bean = someMethod(dependency);
+                    _singletonBeans.Add(id, bean);
+                    return bean;
+                }
+            }
+
+            return someMethod(dependency);
+        }
+
+        private Object someMethod(Dependency dependency)
+        {
             ConstructorInfo[] constructors = dependency.ImplType.GetConstructors(BindingFlags.Instance | BindingFlags.Public);
             if (constructors.Length == 0)
-                throw new DependencyException($"No public constructor for bean \"{id}\"");
+                throw new DependencyException($"No public constructor for bean \"{dependency.Id}\"");
             ConstructorInfo constructor = GetConstructorWithMaxParams(constructors);
-            object bean = CreateBean(constructor);
-            if (dependency.Scope == Lifetime.Singleton)
-                _singletonBeans.Add(id, bean);
-            return bean;
+            return CreateBean(constructor);
         }
+        
     }
 }
